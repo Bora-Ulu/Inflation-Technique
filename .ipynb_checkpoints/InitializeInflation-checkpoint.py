@@ -120,10 +120,16 @@ def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structu
     num_vars=inflationcopies.sum()
     offsets=GenerateOffsets(inflation_order,inflation_depths)
     globalstrategyflat=list(np.add(*stuff) for stuff in zip(list(map(np.arange,inflationcopies.tolist())),offsets))
+    obs_count=len(inflation_depths)
     reshapings=np.ones((obs_count,latent_count),np.uint8)
+    contractings=np.zeros((obs_count,latent_count),np.object)
     for idx,elem in enumerate(root_structure):
         reshapings[idx][elem]=inflation_order
+        contractings[idx][elem]=np.s_[:]
     reshapings=list(map(tuple,reshapings))
+    contractings=list(map(tuple,contractings))
+    
+    
     globalstrategyshaped=list(np.reshape(*stuff) for stuff in zip(globalstrategyflat,reshapings))
     fullshape=tuple(np.full(latent_count,inflation_order))
 
@@ -143,7 +149,9 @@ def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structu
                 label_permutation=np.roll(label_permutation, 1)
             global_permutation=np.array(list(np.broadcast_to(elem,fullshape).transpose(tuple(initialtranspose))[label_permutation] for elem in globalstrategyshaped))
             global_permutation=np.transpose(global_permutation,tuple(inversetranspose))
-            global_permutation=Deduplicate(np.ravel(global_permutation))
+            global_permutation=np.hstack(tuple(global_permutation[i][contractings[i]].ravel() for i in np.arange(obs_count)))
+            #global_permutationOLD=Deduplicate(np.ravel(global_permutation))   #Deduplication has been replaced with intelligent extraction.
+            #print(np.all(global_permutation==global_permutationOLD))
             group_generators[latent_to_explore,gen_idx]=global_permutation
     return group_generators
 
