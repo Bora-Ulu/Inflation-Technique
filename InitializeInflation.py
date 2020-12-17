@@ -75,17 +75,18 @@ def MoveToBack(num_var,ar):
 def ToTopologicalOrdering(g):
     return g.permute_vertices(np.argsort(g.topological_sorting('out')).tolist())
 
+#@functools.lru_cache(maxsize=16)
 def LearnParametersFromGraph(origgraph):
     g=ToTopologicalOrdering(origgraph)
     verts=g.vs
     verts["parents"]=g.get_adjlist('in');
-    verts["children"]=g.get_adjlist('out');
+    #verts["children"]=g.get_adjlist('out');
     verts["ancestors"]=[g.subcomponent(i,'in') for i in g.vs]
     verts["descendants"]=[g.subcomponent(i,'out') for i in g.vs]
     verts["indegree"]=g.indegree()
-    verts["outdegree"]=g.outdegree() #Not needed
+    #verts["outdegree"]=g.outdegree() #Not needed
     verts["grandparents"]=g.neighborhood(None, order=2, mode='in', mindist=2)
-    verts["parents_inclusive"]=g.neighborhood(None, order=1, mode='in', mindist=0) #Not needed
+    #verts["parents_inclusive"]=g.neighborhood(None, order=1, mode='in', mindist=0) #Not needed
     has_grandparents=[idx for idx,v in enumerate(g.vs["grandparents"]) if len(v)>=1]
     verts["isroot"]=[0==i for i in g.vs["indegree"]]
     root_vertices=verts.select(isroot = True).indices
@@ -98,12 +99,96 @@ def LearnParametersFromGraph(origgraph):
     determinism_checks=[(root,FindScreeningOffSet(verts[root],v)) for v in g.vs[has_grandparents] for root in np.setdiff1d(v["roots_of"],v["parents"])]
     return verts["name"],verts["parents"],verts["roots_of"],determinism_checks
 
-inflation_order=2
-card=4
-g=Graph.Formula("X->A,Y->A:B,X->C,Z->B:C")
+#inflation_order=2
+#card=2
+#g=Graph.Formula("X->A:C,Y->A:B,Z->B:C")
+#g=Graph.Formula("U3->A:C:D,U2->B:C:D,U1->A:B,A->C,B->D")
 #g=Graph.Formula("U1->A,U2->B:C,U1->D,A->B,B->C:D")
 
 
+def GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets):
+    #offsets=GenerateOffsets(inflation_order,inflation_depths)
+    obs_count=len(inflation_depths)
+    order_range=np.arange(inflation_order)
+    cannonical_pos=np.empty((obs_count,inflation_order),dtype=np.uint32)
+    for i in np.arange(obs_count):
+        cannonical_pos[i]=np.sum(np.outer(inflation_order**np.arange(inflation_depths[i]),order_range),axis=0)+offsets[i]
+    return cannonical_pos.T.ravel()
+
+def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths):
+    inflationcopies=inflation_order**inflation_depths
+    num_vars=inflationcopies.sum()
+    offsets=GenerateOffsets(inflation_order,inflation_depths)
+    globalstrategyflat=list(np.add(*stuff) for stuff in zip(list(map(np.arange,inflationcopies.tolist())),offsets))
+    reshapings=np.ones((obs_count,latent_count),np.uint8)
+    for idx,elem in enumerate(root_structure):
+        reshapings[idx][elem]=inflation_order
+    reshapings=list(map(tuple,reshapings))
+    globalstrategyshaped=list(np.reshape(*stuff) for stuff in zip(globalstrategyflat,reshapings))
+    fullshape=tuple(np.full(latent_count,inflation_order))
+
+    if inflation_order==2:
+        inflation_order_gen_count=1
+    else:
+        inflation_order_gen_count=2
+    group_generators=np.empty((latent_count,inflation_order_gen_count,num_vars),np.uint)
+    for latent_to_explore in np.arange(latent_count):
+        for gen_idx in np.arange(inflation_order_gen_count):
+            initialtranspose=MoveToFront(latent_count,np.array([latent_to_explore]))
+            inversetranspose=np.hstack((np.array([0]),1+np.argsort(initialtranspose)))
+            label_permutation=np.arange(inflation_order)
+            if gen_idx==0:
+                label_permutation[np.array([0,1])]=np.array([1,0])
+            elif gen_idx==1:
+                label_permutation=np.roll(label_permutation, 1)
+            global_permutation=np.array(list(np.broadcast_to(elem,fullshape).transpose(tuple(initialtranspose))[label_permutation] for elem in globalstrategyshaped))
+            global_permutation=np.transpose(global_permutation,tuple(inversetranspose))
+            global_permutation=Deduplicate(np.ravel(global_permutation))
+            group_generators[latent_to_explore,gen_idx]=global_permutation
+    return group_generators
+
+def GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set):
+    one_generator_per_root=group_generators[:,0]
+    det_assumptions=list();
+    for pair in determinism_checks:
+        flatset=exp_set[list(np.array(pair[1])-latent_count)]
+        symop=one_generator_per_root[pair[0]]
+        rule=np.vstack((flatset,symop[flatset])).T.astype('uint32')
+        rule=rule[:-1,:].T.tolist()+rule[-1,:].T.tolist()
+        det_assumptions.append(rule)
+    return det_assumptions
+#det_assumptions=GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set)
+#print(det_assumptions)
+
+
+#group_elem=dimino_wolfe(group_generators.reshape((-1,num_vars)))
+#print(np.array(group_elem))
+
+def LearnInflationGraphParameters(g,inflation_order):
+    names,parents_of,roots_of,determinism_checks = LearnParametersFromGraph(g)
+    #print(names)
+    graph_structure=list(filter(None,parents_of))
+    obs_count=len(graph_structure)
+    latent_count=len(parents_of)-obs_count
+    root_structure=roots_of[latent_count:]
+    inflation_depths=np.array(list(map(len,root_structure)))
+    inflationcopies=inflation_order**inflation_depths
+    num_vars=inflationcopies.sum()
+    accumulated=np.add.accumulate(inflation_order**inflation_depths)
+    offsets=np.hstack(([0],accumulated[:-1]))
+    exp_set=GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets)
+    group_generators = GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths)
+    group_elem=np.array(dimino_wolfe(group_generators.reshape((-1,num_vars))))
+    det_assumptions=GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set)
+    return obs_count,num_vars,exp_set,group_elem,det_assumptions,names[latent_count:]
+
+#obs_count,num_vars,exp_set,group_elem,det_assumptions = LearnInflationGraphParameters(g,inflation_order)
+#print([obs_count,num_vars])
+#print(exp_set)
+#print(group_elem)
+#print(det_assumptions)
+
+"""
 names,parents_of,roots_of,determinism_checks = LearnParametersFromGraph(g)
 graph_structure=list(filter(None,parents_of))
 obs_count=len(graph_structure)
@@ -114,97 +199,42 @@ inflation_depths=np.array(list(map(len,root_structure)))
 inflationcopies=inflation_order**inflation_depths
 num_vars=inflationcopies.sum()
 
-accumulated=np.add.accumulate(inflationcopies)
-offsets = np.hstack(([0],accumulated[:-1]))
-cannonical_pos=np.zeros((obs_count,inflation_order),dtype=np.uint32)
-for i in range(obs_count):
-    
-    depth=inflation_depths[i]
-    number_of_copies=inflation_order**depth
-    step=int(np.floor((number_of_copies)/(inflation_order-1)))
-    if step == number_of_copies:
-        step=step-1
-    cannonical_pos[i]=np.arange(0,number_of_copies,step)
-    
-exp_set=np.ravel(cannonical_pos.T+offsets)
-    
+#accumulated=np.add.accumulate(inflation_order**inflation_depths)
+#offsets = np.hstack(([0],accumulated[:-1]))
+def GenerateOffsets(inflation_order,inflation_depths):
+    accumulated=np.add.accumulate(inflation_order**inflation_depths)
+    return np.hstack(([0],accumulated[:-1]))
+offsets=GenerateOffsets(inflation_order,inflation_depths)
+
+exp_set=GenerateCanonicalExpressibleSet(inflation_order,inflation_depths)
+"""
+
+#accumulated=np.add.accumulate(inflationcopies)
+#offsets = np.hstack(([0],accumulated[:-1]))
+#cannonical_pos=np.zeros((obs_count,inflation_order),dtype=np.uint32)
+#for i in range(obs_count):
+#    
+#    depth=inflation_depths[i]
+#    number_of_copies=inflation_order**depth
+#    step=int(np.floor((number_of_copies)/(inflation_order-1)))
+#    if step == number_of_copies:
+#        step=step-1
+#    cannonical_pos[i]=np.arange(0,number_of_copies,step)
+#    
+#exp_set=np.ravel(cannonical_pos.T+offsets)
+#    
 #print(exp_set) 
 
 
 
-globalstrategyflat=list(np.add(*stuff) for stuff in zip(list(map(np.arange,inflationcopies.tolist())),offsets))
 
-reshapings=np.ones((obs_count,latent_count),np.uint8)
 
-for idx,elem in enumerate(root_structure):
-    reshapings[idx][elem]=inflation_order
-reshapings=list(map(tuple,reshapings))
 
-globalstrategyshaped=list(np.reshape(*stuff) for stuff in zip(globalstrategyflat,reshapings))
 
-fullshape=tuple(np.full(latent_count,inflation_order))
-
-if inflation_order==2:
-    inflation_order_gen_count=1
-else:
-    inflation_order_gen_count=2
-
-group_generators=np.zeros((latent_count,inflation_order_gen_count,num_vars),np.uint)
-for latent_to_explore in np.arange(latent_count):
-    for gen_idx in np.arange(inflation_order_gen_count):
-        initialtranspose=MoveToFront(latent_count,np.array([latent_to_explore]))
-        
-        inversetranspose=np.hstack((np.array([0]),1+np.argsort(initialtranspose)))
-        label_permutation=np.arange(inflation_order)
-        if gen_idx==0:
-            label_permutation[np.array([0,1])]=np.array([1,0])
-        elif gen_idx==1:
-            label_permutation=np.roll(label_permutation, 1)
-        global_permutation=np.array(list(np.broadcast_to(elem,fullshape).transpose(tuple(initialtranspose))[label_permutation] for elem in globalstrategyshaped))
-        
-        #global_permutation=[]
-        #for i in range(len(globalstrategyshaped)):
-            
-        #    elem=globalstrategyshaped[i]
-        #    bgs=np.broadcast_to(elem,fullshape)
-        #    bgs=bgs.transpose(tuple(initialtranspose))
-        #    bgs=bgs[label_permutation]
-            
-        #     global_permutation.append(bgs)
-            
-        #global_permutation=np.array(global_permutation)
-        
-        global_permutation=np.transpose(global_permutation,tuple(inversetranspose))
-        #print(np.ravel(global_permutation))
-
-        global_permutation=Deduplicate(np.ravel(global_permutation))
-        #print(global_permutation)
-        group_generators[latent_to_explore,gen_idx]=global_permutation
-
-"""
-a=group_generators[0][0][[8,9,10,11]]
-b=group_generators[2][0][[8,9,10,11]]
-
-group_generators[0][0][[8,9,10,11]]=b
-group_generators[2][0][[8,9,10,11]]=a
-"""
-
-print(group_generators)
-one_generator_per_root=group_generators[:,0]
-
-det_assumptions=list();
-for pair in determinism_checks:
-    flatset=exp_set[list(np.array(pair[1])-latent_count)]
-    symop=one_generator_per_root[pair[0]]
-    rule=np.vstack((flatset,symop[flatset])).T.astype('uint32')
-    rule=rule[:-1,:].T.tolist()+rule[-1,:].T.tolist()
-    det_assumptions.append(rule)
-
-group_elem=dimino_wolfe(group_generators.reshape((-1,num_vars)))
-print(np.array(group_elem))
+    
 
 @njit
-def GenShapedColumnIntegers(range_shape):    #range_shape is presumed to be given as nparray input.
+def GenShapedColumnIntegers(range_shape):    
     return np.arange(0,np.prod(np.array(range_shape)),1,np.int32).reshape(range_shape)
 
 def MarkInvalidStrategies(card,num_var,det_assumptions):
@@ -223,18 +253,23 @@ def MarkInvalidStrategies(card,num_var,det_assumptions):
         ColumnIntegers=ColumnIntegers.reshape(initialshape).transpose(tuple(inversetranspose))
     return ColumnIntegers
 
-def ValidColumnOrbits(card, num_var, group_elem,det_assumptions=[]):
-    ColumnIntegers=MarkInvalidStrategies(card,num_var,det_assumptions)
+def ValidColumnOrbits(card, num_vars, group_elem,det_assumptions=[]):
+    ColumnIntegers=MarkInvalidStrategies(card,num_vars,det_assumptions)
     group_elements=group_elem#GroupElementsFromGenerators(GroupGeneratorsFromSwaps(num_var,anc_con))
     group_order=len(group_elements)
-    AMatrix=np.empty([group_order,card**num_var],np.int32)
+    AMatrix=np.empty([group_order,card**num_vars],np.int32)
     AMatrix[0]=ColumnIntegers.flat #Assuming first group element is the identity
     for i in np.arange(1,group_order):
         AMatrix[i]=np.transpose(ColumnIntegers,group_elements[i]).flat
     minima=np.amin(AMatrix,axis=0)
     AMatrix=np.compress(minima==np.abs(AMatrix[0]), AMatrix, axis=1)
-    print(AMatrix.shape)
+    #print(AMatrix.shape)
     return AMatrix
+
+def ValidColumnOrbitsFromGraph(g,inflation_order,card):
+    obs_count,num_vars,exp_set,group_elem,det_assumptions,names = LearnInflationGraphParameters(g,inflation_order)
+    print(names)
+    return ValidColumnOrbits(card, num_vars, group_elem, det_assumptions)
 
 def PositionIndex(arraywithduplicates):
     arraycopy=np.empty_like(arraywithduplicates)
@@ -268,11 +303,25 @@ def GenerateEncodingColumnToMonomial(card,num_var,expr_set):
 def MergeMonomials(bvector,encoding):
     return np.ravel(coo_matrix((bvector, (np.zeros(len(bvector),np.uint8), encoding)),(1, int(np.amax(encoding)+1))).toarray())
 
-def EncodeA(card, num_var, group_elem, expr_set, inflation_order):
-    original_product_cardinality=(card**np.rint(len(expr_set)/inflation_order)).astype(np.uint)
+#def EncodeA(card, num_var, group_elem, expr_set, inflation_order):
+#    original_product_cardinality=(card**np.rint(len(expr_set)/inflation_order)).astype(np.uint)
+#    EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
+#    EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_var,np.array(expr_set))
+#    return EncodingMonomialToRow[EncodingColumnToMonomial][ValidColumnOrbits(card, num_var, group_elem,det_assumptions)]
+
+def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card):
+    #original_product_cardinality=(card**np.rint(len(expr_set)/inflation_order)).astype(np.uint)
+    original_product_cardinality=card**obs_count
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
-    EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_var,np.array(expr_set))
-    return EncodingMonomialToRow[EncodingColumnToMonomial][ValidColumnOrbits(card, num_var, group_elem,det_assumptions)]
+    EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_vars,np.array(expr_set))
+    return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+
+def InflationMatrixFromGraph(g,inflation_order,card):
+    obs_count,num_vars,expr_set,group_elem,det_assumptions,names = LearnInflationGraphParameters(g,inflation_order)
+    print(names)
+    #valid_column_orbits=ValidColumnOrbitsFromGraph(g,inflation_order,card) #Should be fixed so as not to learn inflation parameters twice.
+    valid_column_orbits=ValidColumnOrbits(card, num_vars, group_elem,det_assumptions)
+    return EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card)
 
 def FindB(Data, inflation_order):
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(len(Data),inflation_order)
@@ -297,19 +346,20 @@ def InflationLP(EncodedA,b):
     CVXOPTA=matrix(np.ones((1,colcount)))
     return solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
 
-Data=[0.12199995751046305, 0.0022969343799089472, 0.001748319476328954, 3.999015242496535e-05, 0.028907881434196828, 0.0005736087488455967, 0.0003924033706699725, 1.1247230369521505e-05, 0.0030142577390317635, 0.09234476010282468, 4.373922921480586e-05, 0.0014533921021948346, 0.0007798079722868244, 0.024091567451515063, 1.1247230369521505e-05, 0.0003849052170902915, 0.020774884184769502, 0.000396152447459813, 0.0003049249122403608, 4.998769053120669e-06, 0.10820335492385, 0.0020794879260981982, 0.0015546171755205281, 2.4993845265603346e-05, 0.0006260958239033638, 0.020273757587194154, 7.498153579681003e-06, 0.0003374169110856452, 0.0028942872817568676, 0.08976414557915113, 2.624353752888351e-05, 0.0012984302615480939, 0.002370666223442477, 4.7488306004646356e-05, 0.0999928767540993, 0.001957018084296742, 0.0006198473625869629, 8.747845842961171e-06, 0.02636975644747481, 0.0005198719815245496, 1.4996307159362007e-05, 0.000403650601039494, 0.0005498645958432735, 0.017359475229224805, 7.123245900696953e-05, 0.002346922070440154, 0.0033754188031197316, 0.10295964618712641, 0.00038740460161685187, 7.498153579681003e-06, 0.01608353942841575, 0.000306174604503641, 0.0021319750011559654, 4.248953695152569e-05, 0.09107007399427891, 0.001860791780024169, 5.998522863744803e-05, 0.0018395470115484063, 0.002570616985567304, 0.0766411271224461, 1.874538394920251e-05, 0.00048238121362614454, 0.0006410921310627258, 0.020223769896662948]
 
-start = time.time()
-EncodedA = EncodeA(card, num_vars, group_elem, exp_set, inflation_order)
-print('It took', time.time()-start, 'seconds.')
-print(EncodedA.shape)
 
-start = time.time()
-b=FindB(Data,inflation_order)
-MCVXOPT=FormCVXOPTArrayFromOnesPositions(EncodedA).T 
-print('It took', time.time()-start, 'seconds.')
-print(MCVXOPT.size)
+#start = time.time()
+#valid_column_orbits=ValidColumnOrbitsFromGraph(g,inflation_order,card)
+#EncodedA = EncodeA(card, num_vars, valid_column_orbits, exp_set, inflation_order)
+#print('It took', time.time()-start, 'seconds.')
+#print(EncodedA.shape)
 
-solverout=InflationLP(EncodedA,b)
+#start = time.time()
+#b=FindB(Data,inflation_order)
+#MCVXOPT=FormCVXOPTArrayFromOnesPositions(EncodedA).T 
+#print('It took', time.time()-start, 'seconds.')
+#print(MCVXOPT.size)
+
+#solverout=InflationLP(EncodedA,b)
 
 
