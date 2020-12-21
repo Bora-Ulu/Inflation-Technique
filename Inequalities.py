@@ -61,6 +61,22 @@ for i in np.unique(G):
         string=string+'+'+ListingProbs3[indecies[j]]   
     ListingProbs4.append(string)
     
-print(ListingProbs4)
+#print(ListingProbs4)
 
+NonZeroYs=np.where(y != 0)[0]
 
+for Y in NonZeroYs:
+    
+    elem=str(float(y[Y]))+'x['+ListingProbs4[Y]+']'
+    
+    if Y==NonZeroYs[0]:
+        
+        Ineq=elem
+        
+    else:
+        
+        Ineq=Ineq+'+'+elem
+    
+Ineq=Ineq+'>='+'0'
+    
+print(Ineq)
