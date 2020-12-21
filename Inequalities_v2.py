@@ -36,9 +36,9 @@ except NameError:
 EncodedA = inflation.InflationMatrixFromGraph(InstrumentalGraph,inflation_order,card)
 CVXOPT=inflation.FormCVXOPTArrayFromOnesPositions(EncodedA)
 
-B=inflation.FindB(DataInstrumental,inflation_order)
+b=inflation.FindB(DataInstrumental,inflation_order)
 
-Sol=inflation.InflationLP(EncodedA,B)
+Sol=inflation.InflationLP(EncodedA,b)
 
 
 def Inequality(Graph,inflation_order,card,Sol):
@@ -81,8 +81,25 @@ def Inequality(Graph,inflation_order,card,Sol):
     
     return InequalityAsArray,InequalityAsString
 
+def Compatibility(Sol,b):
+    
+    y=np.array(Sol)
+    
+    Comp=y.T.dot(b)
+    
+    if Comp >= 0:
+        Comp=True
+        print('Distribution Compatibility status: COMPATIBLE')
+    else:
+        Comp=False
+        print('Distribution Compatibility status: INCOMPATIBLE')
+
+    return Comp
+
 Graph=InstrumentalGraph
 IA,IS=Inequality(Graph,inflation_order,card,Sol)
+C=Compatibility(Sol,b)
+print(C)
 print(IS)
 
 """
