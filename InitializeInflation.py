@@ -349,7 +349,8 @@ def InflationLP(EncodedA,b):
     CVXOPTb=matrix(np.atleast_2d(b).T)
     CVXOPTh=matrix(np.zeros((rowcount,1)))
     CVXOPTA=matrix(np.ones((1,colcount)))
-    return solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
+    sol=solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
+    return sol['x']
 
 
 
