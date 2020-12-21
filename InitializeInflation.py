@@ -106,7 +106,7 @@ def LearnParametersFromGraph(origgraph):
 #g=Graph.Formula("U1->A,U2->B:C,U1->D,A->B,B->C:D")
 
 
-def GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets):
+def GenerateCanonicalExpressibleSet(inflation_order, inflation_depths, offsets):
     #offsets=GenerateOffsets(inflation_order,inflation_depths)
     obs_count=len(inflation_depths)
     order_range=np.arange(inflation_order)
@@ -115,10 +115,10 @@ def GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets):
         cannonical_pos[i]=np.sum(np.outer(inflation_order**np.arange(inflation_depths[i]),order_range),axis=0)+offsets[i]
     return cannonical_pos.T.ravel()
 
-def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths):
+def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths, offsets):
     inflationcopies=inflation_order**inflation_depths
     num_vars=inflationcopies.sum()
-    offsets=GenerateOffsets(inflation_order,inflation_depths)
+    #offsets=GenerateOffsets(inflation_order,inflation_depths)
     globalstrategyflat=list(np.add(*stuff) for stuff in zip(list(map(np.arange,inflationcopies.tolist())),offsets))
     obs_count=len(inflation_depths)
     reshapings=np.ones((obs_count,latent_count),np.uint8)
@@ -181,8 +181,8 @@ def LearnInflationGraphParameters(g,inflation_order):
     num_vars=inflationcopies.sum()
     accumulated=np.add.accumulate(inflation_order**inflation_depths)
     offsets=np.hstack(([0],accumulated[:-1]))
-    exp_set=GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets)
-    group_generators = GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths)
+    exp_set=GenerateCanonicalExpressibleSet(inflation_order, inflation_depths, offsets)
+    group_generators = GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths, offsets)
     group_elem=np.array(dimino_wolfe(group_generators.reshape((-1,num_vars))))
     det_assumptions=GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set)
     return obs_count,num_vars,exp_set,group_elem,det_assumptions,names[latent_count:]
