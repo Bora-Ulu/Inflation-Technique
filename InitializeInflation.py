@@ -379,13 +379,30 @@ def CVXOPTArrayFromOnesPositions(OnesPositions):
     return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
 
 def InflationLP(EncodedA,b):
+    print('Preprocessing LP for efficiency boost...')
     #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
-    MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
+    #MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
+    MCVXOPT=scipy_sparse_to_spmatrix(SciPyArrayFromOnesPositions(EncodedA)).T
     rowcount=MCVXOPT.size[0];
     colcount=MCVXOPT.size[1];
     CVXOPTb=matrix(np.atleast_2d(b).T)
     CVXOPTh=matrix(np.zeros((rowcount,1)))
     CVXOPTA=matrix(np.ones((1,colcount)))
+    solvers.options['show_progress'] = True
+    solvers.options['mosek'] = {mosek.iparam.log:   10,
+                                   mosek.iparam.presolve_use:    mosek.presolvemode.off,
+                                   mosek.iparam.presolve_lindep_use:   mosek.onoffkey.off,
+                                   mosek.iparam.optimizer:    mosek.optimizertype.free,
+                                   mosek.iparam.presolve_max_num_reductions:   0,
+                                   mosek.iparam.intpnt_solve_form:   mosek.solveform.free,
+                                   mosek.iparam.sim_solve_form:   mosek.solveform.free,
+                                   mosek.iparam.bi_clean_optimizer: mosek.optimizertype.primal_simplex,
+                                   mosek.iparam.intpnt_basis:    mosek.basindtype.always,
+                                   mosek.iparam.bi_max_iterations:   1000000
+                                   }
+    #Other options could be: {mosek.iparam.presolve_use:    mosek.presolvemode.on,      mosek.iparam.presolve_max_num_reductions:   -1, mosek.iparam.presolve_lindep_use:   mosek.onoffkey.on,                       mosek.iparam.optimizer:   mosek.optimizertype.free_simplex,        mosek.iparam.intpnt_solve_form:   mosek.solveform.dual, mosek.iparam.intpnt_basis:    mosek.basindtype.always,
+    #iparam.sim_switch_optimizer: mosek.onoffkey.on}
+    print('Initiating LP')
     sol=solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
     return sol['x'],sol['gap']
 
