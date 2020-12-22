@@ -319,7 +319,10 @@ def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order,
     original_product_cardinality=card**obs_count
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
     EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_vars,np.array(expr_set))
-    return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+    #New code, hopefully will speed up LP. Based on https://stackoverflow.com/a/2828371
+    valid_column_orbits2=np.sort(valid_column_orbits, axis=0);
+    valid_column_orbits2.view(",".join(np.full(valid_column_orbits2.shape[0],'i8').tolist())).sort(order=['f1'], axis=0)
+    return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits2]
 
 def InflationMatrixFromGraph(g,inflation_order,card):
     obs_count,num_vars,expr_set,group_elem,det_assumptions,names = LearnInflationGraphParameters(g,inflation_order)
