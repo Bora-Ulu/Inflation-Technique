@@ -340,13 +340,47 @@ def FindB(Data, inflation_order):
     b=MergeMonomials(b,EncodingMonomialToRow)
     return b
 
-def FormCVXOPTArrayFromOnesPositions(OnesPositions):
+def SciPyArrayFromOnesPositions(OnesPositions):
+    columncount=OnesPositions.shape[-1]
+    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+
+
+
+@njit
+def reindex_list(ar):
+        seenbefore=np.full(np.max(ar)+1,-1)
+        newlist=np.empty(len(ar),np.uint)
+        currentindex=0
+        for idx,val in enumerate(ar):
+            if seenbefore[val]==-1:
+                seenbefore[val]=currentindex
+                newlist[idx]=currentindex
+                currentindex+=1
+            else:
+                newlist[idx]=seenbefore[val]
+        return (newlist)
+    
+def scipy_sparse_to_spmatrix(A):
+    coo = A.tocoo()
+    SP = spmatrix(coo.data.tolist(), coo.row.tolist(), coo.col.tolist(), size=A.shape)
+    return SP
+
+def scipy_sparse_to_row_optimized_spmatrix_transpose(A):
+    coo = A.tocoo()
+    rowsorting=np.argsort(coo.row)
+    newrows=coo.row[rowsorting].tolist()
+    newcols=reindex_list(coo.col[rowsorting]).tolist()
+    return spmatrix(coo.data[rowsorting].tolist(),newcols,newrows, (A.shape[1],A.shape[0]))
+
+def CVXOPTArrayFromOnesPositions(OnesPositions):
     columncount=OnesPositions.shape[-1]
     columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
     return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
 
 def InflationLP(EncodedA,b):
-    MCVXOPT=FormCVXOPTArrayFromOnesPositions(EncodedA).T
+    #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
+    MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
     rowcount=MCVXOPT.size[0];
     colcount=MCVXOPT.size[1];
     CVXOPTb=matrix(np.atleast_2d(b).T)

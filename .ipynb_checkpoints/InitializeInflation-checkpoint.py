@@ -106,7 +106,7 @@ def LearnParametersFromGraph(origgraph):
 #g=Graph.Formula("U1->A,U2->B:C,U1->D,A->B,B->C:D")
 
 
-def GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets):
+def GenerateCanonicalExpressibleSet(inflation_order, inflation_depths, offsets):
     #offsets=GenerateOffsets(inflation_order,inflation_depths)
     obs_count=len(inflation_depths)
     order_range=np.arange(inflation_order)
@@ -115,10 +115,10 @@ def GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets):
         cannonical_pos[i]=np.sum(np.outer(inflation_order**np.arange(inflation_depths[i]),order_range),axis=0)+offsets[i]
     return cannonical_pos.T.ravel()
 
-def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths):
+def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths, offsets):
     inflationcopies=inflation_order**inflation_depths
     num_vars=inflationcopies.sum()
-    offsets=GenerateOffsets(inflation_order,inflation_depths)
+    #offsets=GenerateOffsets(inflation_order,inflation_depths)
     globalstrategyflat=list(np.add(*stuff) for stuff in zip(list(map(np.arange,inflationcopies.tolist())),offsets))
     obs_count=len(inflation_depths)
     reshapings=np.ones((obs_count,latent_count),np.uint8)
@@ -128,11 +128,8 @@ def GenerateInflationGroupGenerators(inflation_order, latent_count, root_structu
         contractings[idx][elem]=np.s_[:]
     reshapings=list(map(tuple,reshapings))
     contractings=list(map(tuple,contractings))
-    
-    
     globalstrategyshaped=list(np.reshape(*stuff) for stuff in zip(globalstrategyflat,reshapings))
     fullshape=tuple(np.full(latent_count,inflation_order))
-
     if inflation_order==2:
         inflation_order_gen_count=1
     else:
@@ -184,8 +181,8 @@ def LearnInflationGraphParameters(g,inflation_order):
     num_vars=inflationcopies.sum()
     accumulated=np.add.accumulate(inflation_order**inflation_depths)
     offsets=np.hstack(([0],accumulated[:-1]))
-    exp_set=GenerateCanonicalExpressibleSet(inflation_order,inflation_depths,offsets)
-    group_generators = GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths)
+    exp_set=GenerateCanonicalExpressibleSet(inflation_order, inflation_depths, offsets)
+    group_generators = GenerateInflationGroupGenerators(inflation_order, latent_count, root_structure, inflation_depths, offsets)
     group_elem=np.array(dimino_wolfe(group_generators.reshape((-1,num_vars))))
     det_assumptions=GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set)
     return obs_count,num_vars,exp_set,group_elem,det_assumptions,names[latent_count:]
@@ -322,6 +319,9 @@ def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order,
     original_product_cardinality=card**obs_count
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
     EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_vars,np.array(expr_set))
+    #New code, hopefully will speed up LP. Based on https://stackoverflow.com/a/2828371
+    #valid_column_orbits2=np.sort(valid_column_orbits, axis=0).T;
+    #valid_column_orbits2.view(",".join(np.full(valid_column_orbits2.shape[0],'i8').tolist())).sort(order=['f1'], axis=0)
     return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
 
 def InflationMatrixFromGraph(g,inflation_order,card):
@@ -340,19 +340,54 @@ def FindB(Data, inflation_order):
     b=MergeMonomials(b,EncodingMonomialToRow)
     return b
 
-def FormCVXOPTArrayFromOnesPositions(OnesPositions):
+def SciPyArrayFromOnesPositions(OnesPositions):
+    columncount=OnesPositions.shape[-1]
+    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+
+
+
+@njit
+def reindex_list(ar):
+        seenbefore=np.full(np.max(ar)+1,-1)
+        newlist=np.empty(len(ar),np.uint)
+        currentindex=0
+        for idx,val in enumerate(ar):
+            if seenbefore[val]==-1:
+                seenbefore[val]=currentindex
+                newlist[idx]=currentindex
+                currentindex+=1
+            else:
+                newlist[idx]=seenbefore[val]
+        return (newlist)
+    
+def scipy_sparse_to_spmatrix(A):
+    coo = A.tocoo()
+    SP = spmatrix(coo.data.tolist(), coo.row.tolist(), coo.col.tolist(), size=A.shape)
+    return SP
+
+def scipy_sparse_to_row_optimized_spmatrix_transpose(A):
+    coo = A.tocoo()
+    rowsorting=np.argsort(coo.row)
+    newrows=coo.row[rowsorting].tolist()
+    newcols=reindex_list(coo.col[rowsorting]).tolist()
+    return spmatrix(coo.data[rowsorting].tolist(),newcols,newrows, (A.shape[1],A.shape[0]))
+
+def CVXOPTArrayFromOnesPositions(OnesPositions):
     columncount=OnesPositions.shape[-1]
     columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
     return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
 
 def InflationLP(EncodedA,b):
-    MCVXOPT=FormCVXOPTArrayFromOnesPositions(EncodedA).T
+    #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
+    MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
     rowcount=MCVXOPT.size[0];
     colcount=MCVXOPT.size[1];
     CVXOPTb=matrix(np.atleast_2d(b).T)
     CVXOPTh=matrix(np.zeros((rowcount,1)))
     CVXOPTA=matrix(np.ones((1,colcount)))
-    return solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
+    sol=solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
+    return sol['x'],sol['gap']
 
 
 
