@@ -187,6 +187,18 @@ def LearnInflationGraphParameters(g,inflation_order):
     det_assumptions=GenDeterminismAssumptions(determinism_checks,latent_count,group_generators,exp_set)
     return obs_count,num_vars,exp_set,group_elem,det_assumptions,names[latent_count:]
 
+def LearnSomeInflationGraphParameters(g,inflation_order):
+    names,parents_of,roots_of,determinism_checks = LearnParametersFromGraph(g)
+    #print(names)
+    graph_structure=list(filter(None,parents_of))
+    obs_count=len(graph_structure)
+    latent_count=len(parents_of)-obs_count
+    root_structure=roots_of[latent_count:]
+    inflation_depths=np.array(list(map(len,root_structure)))
+    inflationcopies=inflation_order**inflation_depths
+    num_vars=inflationcopies.sum()
+    return obs_count,num_vars,names[latent_count:]
+
 #obs_count,num_vars,exp_set,group_elem,det_assumptions = LearnInflationGraphParameters(g,inflation_order)
 #print([obs_count,num_vars])
 #print(exp_set)
@@ -358,6 +370,19 @@ def FindB(Data, inflation_order):
     return b
 
 
+def Generate_b_and_counts(Data, inflation_order):
+    EncodingMonomialToRow=GenerateEncodingMonomialToRow(len(Data),inflation_order)
+    s,idx,counts=np.unique(EncodingMonomialToRow,return_index=True,return_counts=True)
+    preb=np.array(Data)
+    b=preb
+    for i in range(1,inflation_order):
+        b=np.kron(preb,b)
+    return b[idx],counts
+
+def FindBv2(Data, inflation_order):
+    return np.multiply(*Generate_b_and_counts(Data, inflation_order))
+
+
 
 
 @njit
@@ -392,6 +417,8 @@ def optimize_inflation_matrix(A):
 #    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
 #    return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
 
+
+
 def InflationLP(SparseInflationMatrix,b):
     print('Preprocessing LP for efficiency boost...')
     #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
@@ -419,6 +446,7 @@ def InflationLP(SparseInflationMatrix,b):
     print('Initiating LP')
     sol=solvers.lp(CVXOPTb,-MCVXOPT,CVXOPTh,CVXOPTA,matrix(np.ones((1,1))),solver='mosek')
     return sol['x'],sol['gap']
+
 
 
 
