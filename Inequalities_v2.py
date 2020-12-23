@@ -104,7 +104,7 @@ def yRoundFilter(y,n):
     
     y2=np.rint(y*(10**order)).astype(np.int)
          
-    uy=np.unique(np.abs(y2))
+    uy=np.unique(np.abs(y2)).astype(np.uint)
     GCD=np.gcd.reduce(uy)
     
     y2=y2/GCD
@@ -167,10 +167,10 @@ def Inequality(Graph,inflation_order,card,Sol,b,SpMatrix):
             ListingProbs3.append(elem)
         ListingProbs3=np.array(ListingProbs3)
         
-        y=y.astype(np.uint)
+        y=y.astype(np.int)
         
         InequalityAsArray=y.T.dot(ListingProbs3)
-        InequalityAsString=str(InequalityAsArray)+'>=0'
+        #InequalityAsString=str(InequalityAsArray)+'>=0'
         
         divisor=sy.content(InequalityAsArray[0])
         
