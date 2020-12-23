@@ -319,17 +319,34 @@ def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order,
     original_product_cardinality=card**obs_count
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
     EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_vars,np.array(expr_set))
-    #New code, hopefully will speed up LP. Based on https://stackoverflow.com/a/2828371
-    #valid_column_orbits2=np.sort(valid_column_orbits, axis=0).T;
-    #valid_column_orbits2.view(",".join(np.full(valid_column_orbits2.shape[0],'i8').tolist())).sort(order=['f1'], axis=0)
-    return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+    result=EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+    #Once the encoding is done, the order of the columns can be tweaked at will!
+    #result=np.sort(result,axis=0)
+    result.sort(axis=0) #in-place sort
+    #result=result[np.lexsort(result),:]
+    return result
+    #return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+
+
+def SciPyArrayFromOnesPositions(OnesPositions):
+    columncount=OnesPositions.shape[-1]
+    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+
+def SciPyArrayFromOnesPositionsWithSort(OnesPositions):
+    columncount=OnesPositions.shape[-1]
+    columnspec=np.broadcast_to(np.lexsort(OnesPositions), (len(OnesPositions), columncount)).ravel()
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+
+def SparseInflationMatrix(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card):
+    return SciPyArrayFromOnesPositionsWithSort(EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card))
 
 def InflationMatrixFromGraph(g,inflation_order,card):
     obs_count,num_vars,expr_set,group_elem,det_assumptions,names = LearnInflationGraphParameters(g,inflation_order)
     print(names)
     #valid_column_orbits=ValidColumnOrbitsFromGraph(g,inflation_order,card) #Should be fixed so as not to learn inflation parameters twice.
     valid_column_orbits=ValidColumnOrbits(card, num_vars, group_elem,det_assumptions)
-    return EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card)
+    return SciPyArrayFromOnesPositions(EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card))
 
 def FindB(Data, inflation_order):
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(len(Data),inflation_order)
@@ -340,10 +357,6 @@ def FindB(Data, inflation_order):
     b=MergeMonomials(b,EncodingMonomialToRow)
     return b
 
-def SciPyArrayFromOnesPositions(OnesPositions):
-    columncount=OnesPositions.shape[-1]
-    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
-    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
 
 
 
@@ -362,27 +375,28 @@ def reindex_list(ar):
         return (newlist)
     
 def scipy_sparse_to_spmatrix(A):
-    coo = A.tocoo()
+    coo = A.asformat('coo', copy=False)
     SP = spmatrix(coo.data.tolist(), coo.row.tolist(), coo.col.tolist(), size=A.shape)
     return SP
 
-def scipy_sparse_to_row_optimized_spmatrix_transpose(A):
-    coo = A.tocoo()
+def optimize_inflation_matrix(A):
+    coo = A.asformat('coo', copy=False)
     rowsorting=np.argsort(coo.row)
     newrows=coo.row[rowsorting].tolist()
-    newcols=reindex_list(coo.col[rowsorting]).tolist()
-    return spmatrix(coo.data[rowsorting].tolist(),newcols,newrows, (A.shape[1],A.shape[0]))
+    newcols=reindex_list(coo.col[rowsorting])
+    #return spmatrix(coo.data[rowsorting].tolist(),newcols,newrows, (A.shape[1],A.shape[0]))
+    return coo_matrix((coo.data[rowsorting], (newrows, newcols)),(A.shape[0],A.shape[1]),dtype=np.uint)
 
-def CVXOPTArrayFromOnesPositions(OnesPositions):
-    columncount=OnesPositions.shape[-1]
-    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
-    return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
+#def CVXOPTArrayFromOnesPositions(OnesPositions):
+#    columncount=OnesPositions.shape[-1]
+#    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
+#    return spmatrix(np.ones(OnesPositions.size), OnesPositions.ravel().tolist(), columnspec.tolist(),(int(np.amax(OnesPositions)+1), columncount))
 
-def InflationLP(EncodedA,b):
+def InflationLP(SparseInflationMatrix,b):
     print('Preprocessing LP for efficiency boost...')
     #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
     #MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
-    MCVXOPT=scipy_sparse_to_spmatrix(SciPyArrayFromOnesPositions(EncodedA)).T
+    MCVXOPT=scipy_sparse_to_spmatrix(SparseInflationMatrix.T)
     rowcount=MCVXOPT.size[0];
     colcount=MCVXOPT.size[1];
     CVXOPTb=matrix(np.atleast_2d(b).T)
