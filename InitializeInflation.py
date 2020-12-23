@@ -331,12 +331,12 @@ def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order,
 def SciPyArrayFromOnesPositions(OnesPositions):
     columncount=OnesPositions.shape[-1]
     columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
-    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(int(np.amax(OnesPositions)+1), columncount),dtype=np.uint)
 
 def SciPyArrayFromOnesPositionsWithSort(OnesPositions):
     columncount=OnesPositions.shape[-1]
     columnspec=np.broadcast_to(np.lexsort(OnesPositions), (len(OnesPositions), columncount)).ravel()
-    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(np.amax(OnesPositions)+1, columncount),dtype=np.uint)
+    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(int(np.amax(OnesPositions)+1), columncount),dtype=np.uint)
 
 def SparseInflationMatrix(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card):
     return SciPyArrayFromOnesPositionsWithSort(EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card))
