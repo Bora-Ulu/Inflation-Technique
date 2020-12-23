@@ -72,15 +72,14 @@ def Epsilon(y,n):
     ymax=max(y)
     denom=1000*n
     epsilon=ymax/denom
-    
+    print(denom)
     return epsilon
 
-def ValidityCheck(y,SpMatrix):
-    
-    #Smatrix=SpMatrix.toarray()    #DO NOT LEAVE SPARSITY!!
+def ValidityCheck(y,SpMatrix,yreal):
+       #DO NOT LEAVE SPARSITY!!
     checkY=y.T * SpMatrix
-    
-    if np.amin(checkY) >= 0:
+    Yreal=yreal.T * SpMatrix
+    if np.amin(checkY) >= np.amin(Yreal):
         
         Validity=True
         
@@ -94,7 +93,7 @@ def ValidityCheck(y,SpMatrix):
 def yZeroFilter(Sol,n):
     
     y=np.array(Sol)
-    y[np.abs(y) < Epsilon(y,n)] = 0;
+    y[np.abs(y) < Epsilon(y,n)] = 0
     
     return y
 
@@ -103,37 +102,37 @@ def yRoundFilter(y,n):
     epsilon=Epsilon(y,n)
     order=-np.floor(np.log10(epsilon))
     
-    y2=np.rint(y*(10**order)).astype(np.int);
+    y2=np.rint(y*(10**order)).astype(np.int)
          
-    uy=np.unique(np.abs(y))
+    uy=np.unique(np.abs(y2)).astype(np.uint)
     GCD=np.gcd.reduce(uy)
     
     y2=y2/GCD
     
-    return y2.astype(np.int);   
+    return y2.astype(np.int) 
     
 
 def Inequality(Graph,inflation_order,card,Sol,b,SpMatrix):
     
     y=np.array(Sol)
-    
+    yreal=np.array(Sol)
     n=1
     
     epsilon=Epsilon(y,n)
     
     y=yZeroFilter(Sol,n)
     
-    while ValidityCheck(y,SpMatrix) == False:
+    while ValidityCheck(y,SpMatrix,yreal) == False:
         
         n=n*10
         y=yZeroFilter(Sol,n)
         
     y=yRoundFilter(y,n)
     
-    while ValidityCheck(y,SpMatrix) == False:
+    while ValidityCheck(y,SpMatrix,yreal) == False:
         
         n=n*10
-        y=yRoundFilter(Sol,n)
+        y=yRoundFilter(y,n)
     
     Comp=Compatibility(Sol,b,epsilon)
     
@@ -168,9 +167,10 @@ def Inequality(Graph,inflation_order,card,Sol,b,SpMatrix):
             ListingProbs3.append(elem)
         ListingProbs3=np.array(ListingProbs3)
         
-        y=y.astype(np.uint)
+        y=y.astype(np.int)
         
         InequalityAsArray=y.T.dot(ListingProbs3)
+        #InequalityAsString=str(InequalityAsArray)+'>=0'
         
         divisor=sy.content(InequalityAsArray[0])
         
@@ -178,7 +178,7 @@ def Inequality(Graph,inflation_order,card,Sol,b,SpMatrix):
         
         InequalityAsString=str(Inequality)+'>=0'
         
-        return InequalityAsArray,InequalityAsString
+        return Inequality,InequalityAsString
     else:
         return print('Compatibility Error: The input distribution is compatible with given inflation order test.')
 
