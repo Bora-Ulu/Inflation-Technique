@@ -420,7 +420,7 @@ def optimize_inflation_matrix(A):
 
 
 def InflationLP(SparseInflationMatrix,b):
-    print('Preprocessing LP for efficiency boost...')
+    print('Setting up LP in CVXOPT...')
     #MCVXOPT=CVXOPTArrayFromOnesPositions(EncodedA).T
     #MCVXOPT=scipy_sparse_to_row_optimized_spmatrix_transpose(SciPyArrayFromOnesPositions(EncodedA))
     MCVXOPT=scipy_sparse_to_spmatrix(SparseInflationMatrix.T)
