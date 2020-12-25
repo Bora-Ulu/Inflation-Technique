@@ -5,8 +5,9 @@ Setting up the inflation linear program.
 """
 
 import numpy as np
-from numba import njit
+from scipy.sparse import coo_matrix
 from .utilities import reindex_list
+
 
 def optimize_inflation_matrix(A):
     coo = A.asformat('coo', copy=False)

@@ -5,9 +5,9 @@ Finding all valid deterministic outcome assignments of the inflation graph, coll
 """
 
 import numpy as np
-from numba import njit
-from .utilities import MoveToFront, GenShapedColumnIntegers
 from .graphs import LearnInflationGraphParameters
+from .utilities import MoveToFront, GenShapedColumnIntegers
+
 
 def MarkInvalidStrategies(card,num_var,det_assumptions):
     initialshape=np.full(num_var,card,np.uint8)

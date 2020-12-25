@@ -5,10 +5,11 @@ Learning all the relevant properties of the inflation graph.
 """
 
 import numpy as np
-#from igraph import *
+from .dimino import dimino_wolfe
+# from igraph import *
 from .quickgraph import LearnParametersFromGraph
 from .utilities import MoveToFront
-from .dimino import dimino_wolfe
+
 
 def GenerateCanonicalExpressibleSet(inflation_order, inflation_depths, offsets):
     #offsets=GenerateOffsets(inflation_order,inflation_depths)

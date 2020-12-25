@@ -9,14 +9,12 @@ Setting up the inflation linear program.
 #TODO: Modify to pass entire solver output forward.
 
 
-import numpy as np
-from scipy.sparse import coo_matrix 
-from cvxopt import matrix, solvers, spmatrix
-import mosek
 import sys
+import mosek
+import numpy as np
+from cvxopt import matrix, solvers, spmatrix
 
 
-    
 def scipy_sparse_to_spmatrix(A):
     coo = A.asformat('coo', copy=False)
     SP = spmatrix(coo.data.tolist(), coo.row.tolist(), coo.col.tolist(), size=A.shape)

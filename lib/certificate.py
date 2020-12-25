@@ -4,15 +4,15 @@
 Cleanup solver output to yield a readable inequality.
 """
 
-import numpy as np
-from numba import njit
-import sympy as sy
-from scipy.sparse import csr_matrix
-from collections import defaultdict
 import json
-from .quickgraph import LearnSomeInflationGraphParameters
-from .inflationmatrix import Generate_b_and_counts
+from collections import defaultdict
+import numpy as np
+import sympy as sy
+from numba import njit
+from scipy.sparse import csr_matrix
 
+from .inflationmatrix import Generate_b_and_counts
+from .quickgraph import LearnSomeInflationGraphParameters
 
 
 def WitnessDataTest(y,b,tol):
@@ -32,22 +32,22 @@ def Epsilon(y,n):
 def ValidityCheck(y,SpMatrix):
     #Smatrix=SpMatrix.toarray()    #DO NOT LEAVE SPARSITY!!
     checkY=csr_matrix(y.ravel()) * SpMatrix     
-    return (checkY.min() >= 0)
+    return checkY.min() >= 0
     
 @njit
 def yZeroFilter(yRaw,n):
     y=yRaw.copy()
-    y[np.abs(y) < Epsilon(y,n)] = 0;
+    y[np.abs(y) < Epsilon(y,n)] = 0
     return y
 
 def yRoundFilter(y,n):
     order=-np.floor(np.log10(Epsilon(y,n)))
-    y2=np.rint(y*(10**order)).astype(np.int);
+    y2=np.rint(y*(10**order)).astype(np.int)
     uy=np.unique(np.abs(y2))
     GCD=np.gcd.reduce(uy)
     y2=y2/GCD
-    return y2.astype(np.int);   
-    
+    return y2.astype(np.int)
+
 
 def Inequality(Graph,inflation_order,card,SpMatrix,b,Sol):
     yRaw=np.array(Sol['x']).ravel()
@@ -55,7 +55,7 @@ def Inequality(Graph,inflation_order,card,SpMatrix,b,Sol):
         n=1
         y=yZeroFilter(yRaw,n)
         y=yRoundFilter(y,n)
-        while ValidityCheck(y,SpMatrix) == False:
+        while not ValidityCheck(y, SpMatrix):
             n=n*10
             y=yZeroFilter(yRaw,n)
             y=yRoundFilter(y,n)
@@ -102,8 +102,8 @@ def Inequality(Graph,inflation_order,card,SpMatrix,b,Sol):
         # 'b_vector_position': idx.tolist(),
          'Clean solver output': y3.tolist(),
          'Symolic association': symbtostring.tolist()
-        };
-        f = open('inequality_output.json', 'w');
+        }
+        f = open('inequality_output.json', 'w')
         print(json.dumps(returntouser), file=f)
         f.close()
         return returntouser

@@ -42,5 +42,5 @@ def reindex_list(ar):
                 currentindex+=1
             else:
                 newlist[idx]=seenbefore[val]
-        return (newlist)
+        return newlist
     

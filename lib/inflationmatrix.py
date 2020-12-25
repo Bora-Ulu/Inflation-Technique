@@ -5,15 +5,22 @@ Created on Tue Dec 15 16:16:04 2020
 
 @author: boraulu
 """
+#import sys
+#import pathlib 
+#parent_directory=pathlib.Path(__file__).resolve().parent
+#import importlib
+#importlib.import_module('strategies', parent_directory)
 
-import numpy as np
-import functools 
-from scipy.sparse import coo_matrix 
 from functools import lru_cache
 from itertools import permutations
-from .utilities import PositionIndex, MoveToBack, GenShapedColumnIntegers
-from .strategies import ValidColumnOrbits
+
+import numpy as np
+from scipy.sparse import coo_matrix
+
 from .graphs import LearnInflationGraphParameters
+from .strategies import ValidColumnOrbits
+from .utilities import PositionIndex, MoveToBack, GenShapedColumnIntegers
+
 
 @lru_cache(maxsize=16)
 def GenerateEncodingMonomialToRow(original_cardinality_product,inflation_order): #I should make this recursive, as called by both A and b construction.
