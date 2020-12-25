@@ -47,11 +47,10 @@ def GenerateEncodingColumnToMonomial(card,num_var,expr_set):
 
 
 def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card):
-    #original_product_cardinality=(card**np.rint(len(expr_set)/inflation_order)).astype(np.uint)
     original_product_cardinality=card**obs_count
     EncodingMonomialToRow=GenerateEncodingMonomialToRow(original_product_cardinality,inflation_order)
     EncodingColumnToMonomial=GenerateEncodingColumnToMonomial(card,num_vars,np.array(expr_set))
-    result=EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
+    result=EncodingMonomialToRow.take(EncodingColumnToMonomial).take(valid_column_orbits)
     #Once the encoding is done, the order of the columns can be tweaked at will!
     #result=np.sort(result,axis=0)
     result.sort(axis=0) #in-place sort
@@ -60,18 +59,22 @@ def EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order,
     #return EncodingMonomialToRow[EncodingColumnToMonomial][valid_column_orbits]
 
 
-def SciPyArrayFromOnesPositions(OnesPositions):
+def SciPyArrayFromOnesPositions(OnesPositions, sort_columns=True):
     columncount=OnesPositions.shape[-1]
-    columnspec=np.broadcast_to(np.arange(columncount), (len(OnesPositions), columncount)).ravel()
+    if sort_columns:
+        ar_to_broadcast=np.lexsort(OnesPositions)
+    else:
+        ar_to_broadcast = np.arange(columncount)
+    columnspec=np.broadcast_to(ar_to_broadcast, (len(OnesPositions), columncount)).ravel()
     return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(int(np.amax(OnesPositions)+1), columncount),dtype=np.uint)
 
-def SciPyArrayFromOnesPositionsWithSort(OnesPositions):
-    columncount=OnesPositions.shape[-1]
-    columnspec=np.broadcast_to(np.lexsort(OnesPositions), (len(OnesPositions), columncount)).ravel()
-    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(int(np.amax(OnesPositions)+1), columncount),dtype=np.uint)
+#def SciPyArrayFromOnesPositionsWithSort(OnesPositions):
+#    columncount=OnesPositions.shape[-1]
+#    columnspec=np.broadcast_to(np.lexsort(OnesPositions), (len(OnesPositions), columncount)).ravel()
+#    return coo_matrix((np.ones(OnesPositions.size,np.uint), (OnesPositions.ravel(), columnspec)),(int(np.amax(OnesPositions)+1), columncount),dtype=np.uint)
 
 def SparseInflationMatrix(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card):
-    return SciPyArrayFromOnesPositionsWithSort(EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card))
+    return SciPyArrayFromOnesPositions(EncodeA(obs_count, num_vars, valid_column_orbits, expr_set, inflation_order, card))
 
 def InflationMatrixFromGraph(g,inflation_order,card):
     obs_count,num_vars,expr_set,group_elem,det_assumptions,names = LearnInflationGraphParameters(g,inflation_order)

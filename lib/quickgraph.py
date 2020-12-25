@@ -11,7 +11,7 @@ import numpy as np
 def ToTopologicalOrdering(g):
     return g.permute_vertices(np.argsort(g.topological_sorting('out')).tolist())
 
-def LearnParametersFromGraph(origgraph):
+def LearnParametersFromGraph(origgraph, hasty=False):
     g=ToTopologicalOrdering(origgraph)
     verts=g.vs
     verts["parents"]=g.get_adjlist('in');
@@ -27,16 +27,19 @@ def LearnParametersFromGraph(origgraph):
     root_vertices=verts.select(isroot = True).indices
     nonroot_vertices=verts.select(isroot = False).indices
     verts["roots_of"]=[np.intersect1d(anc,root_vertices).tolist() for anc in g.vs["ancestors"]]
-    def FindScreeningOffSet(root,observed):
-        screeningset=np.intersect1d(root["descendants"],observed["parents"]).tolist()
-        screeningset.append(observed.index)
-        return screeningset
-    determinism_checks=[(root,FindScreeningOffSet(verts[root],v)) for v in g.vs[has_grandparents] for root in np.setdiff1d(v["roots_of"],v["parents"])]
+    if hasty:
+        return verts["name"],verts["parents"],verts["roots_of"]
+    else:
+        def FindScreeningOffSet(root,observed):
+            screeningset=np.intersect1d(root["descendants"],observed["parents"]).tolist()
+            screeningset.append(observed.index)
+            return screeningset
+        determinism_checks=[(root,FindScreeningOffSet(verts[root],v)) for v in g.vs[has_grandparents] for root in np.setdiff1d(v["roots_of"],v["parents"])]
     return verts["name"],verts["parents"],verts["roots_of"],determinism_checks
 
 
 def LearnSomeInflationGraphParameters(g,inflation_order):
-    names,parents_of,roots_of,determinism_checks = LearnParametersFromGraph(g)
+    names,parents_of,roots_of = LearnParametersFromGraph(g, hasty=True)
     #print(names)
     graph_structure=list(filter(None,parents_of))
     obs_count=len(graph_structure)
