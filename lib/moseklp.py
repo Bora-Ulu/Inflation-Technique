@@ -111,15 +111,25 @@ def InfeasibilityCertificate(A,b):
             solsta = task.getsolsta(soltype)
 
             # Output a solution
-            xx = [0.] * numvar
-            y = [0.] * numcon
-            task.getxx(soltype, xx)
-            task.gety(soltype, y)
+            xx = numvar * [0.0]
+            y = numcon * [0.0]
+            skc = numcon * [mosek.stakey.unk]
+            skx = numvar * [mosek.stakey.unk]
+            skn = 0 * [mosek.stakey.unk]
+            xc = numcon * [0.0]
+            slc = numcon * [0.0]
+            suc = numcon * [0.0]
+            slx = numvar * [0.0]
+            sux = numvar * [0.0]
+            snx = numvar * [0.0]
+            task.getsolution(soltype, skc, skx, skn, xc, xx, y, slc, suc, slx, sux, snx)
+            gap = np.linalg.norm(np.subtract(np.array(suc),np.array(slc)), np.inf)
+            Sol = {'x': xx, 'y': y, 'xc': xc, 'gap': gap}
 
             #task.dispose()
         #env.dispose()
     streamprinter('Problem status: '+str(prosta))
     streamprinter('Solution status: ' + str(solsta))
 
-    return xx, y
+    return Sol
 

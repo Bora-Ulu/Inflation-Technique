@@ -48,19 +48,26 @@ def yRoundFilter(y,n):
     y2=y2/GCD
     return y2.astype(np.int)
 
+#@njit
+#def IntelligentRound(y,n):
+#    denom = n * np.abs(np.amin(y))
+#    return np.rint(y/denom).astype(np.int)
+
+
+def IntelligentRound(y, SpMatrix):
+    scale = np.abs(np.amin(y))
+    n = 1
+    y2 = np.rint(n * y / scale).astype(np.int) #Can I do this with sparse y?
+    while not ValidityCheck(y, SpMatrix):
+        n = n * (n+1)
+        y2 = np.rint(n * y / scale).astype(np.int)
+    return y2
 
 def Inequality(Graph,inflation_order,card,SpMatrix,b,Sol):
     yRaw=np.array(Sol['x']).ravel()
-    if WitnessDataTest(yRaw,b,Sol['gap']):
-        n=1
-        y=yZeroFilter(yRaw,n)
-        y=yRoundFilter(y,n)
-        while not ValidityCheck(y, SpMatrix):
-            n=n*10
-            y=yZeroFilter(yRaw,n)
-            y=yRoundFilter(y,n)
-            
-        #print(n)
+    tol=1/(np.linalg.norm(b, np.inf) * np.linalg.norm(yRaw, np.inf) * (10 ** 6))
+    if WitnessDataTest(yRaw,b,tol):
+        y=IntelligentRound(yRaw, SpMatrix)
         obs_count,num_vars,names=LearnSomeInflationGraphParameters(Graph,inflation_order)
         
         symbolnames=['P('+''.join([''.join(str(i)) for i in idx])+')' for idx in np.ndindex(tuple(np.full(obs_count,card,np.uint8)))]
