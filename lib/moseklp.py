@@ -40,9 +40,11 @@ def InfeasibilityCertificate(A,b):
             bux = numvar * [+inf]
 
             # Bounds for constraints
-            bkc = numcon * [mosek.boundkey.lo]
+            bkc = numcon * [mosek.boundkey.ra]
             blc = numcon * [0.0]
             buc = numcon * [1.0]
+
+            #Solver output is still unstable. We need to add a new constraint pertaining to sum of coefficients.
 
             # A matrix parameters
             csr = A.asformat('csr', copy=False)
@@ -104,7 +106,6 @@ def InfeasibilityCertificate(A,b):
                 soltype = mosek.soltype.itr
             else:
                 raise ValueError("No valid soltype for mosek detected.")
-                soltype = mosek.soltype.itr
 
 
             prosta = task.getprosta(soltype)
