@@ -31,8 +31,8 @@ def GenShapedColumnIntegers(range_shape):
 #    return arraycopy.take(arraywithduplicates)
 
 def PositionIndex(arraywithduplicates):
-    u,inv,idx=np.unique(arraywithduplicates,return_index=True,return_inverse=True)
-    return inv.take(idx)
+    #u,inv,idx=np.unique(arraywithduplicates,return_inverse=True)[1]
+    return np.unique(arraywithduplicates,return_inverse=True)[1]
 
 @njit
 def reindex_list(ar):
