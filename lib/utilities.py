@@ -24,11 +24,15 @@ def MoveToBack(num_var,ar):
 def GenShapedColumnIntegers(range_shape):    
     return np.arange(0,np.prod(np.array(range_shape)),1,np.int32).reshape(range_shape)
 
+#def PositionIndex(arraywithduplicates):
+#    arraycopy=np.empty_like(arraywithduplicates)
+#    u=np.unique(arraywithduplicates)
+#    arraycopy[u]=np.arange(len(u))
+#    return arraycopy.take(arraywithduplicates)
+
 def PositionIndex(arraywithduplicates):
-    arraycopy=np.empty_like(arraywithduplicates)
-    u=np.unique(arraywithduplicates)
-    arraycopy[u]=np.arange(len(u))
-    return arraycopy[arraywithduplicates]
+    u,inv,idx=np.unique(arraywithduplicates,return_index=True,return_inverse=True)
+    return inv.take(idx)
 
 @njit
 def reindex_list(ar):
