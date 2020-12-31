@@ -13,150 +13,38 @@ def streamprinter(text):
     sys.stdout.write(text)
     sys.stdout.flush()
 
-def InfeasibilityCertificate(A,b):
-    #A is presumed to by a SciPy sparse matrix, b is a numpy array.
-    # Make a MOSEK environment
-    with mosek.Env() as env:
-        # Attach a printer to the environment
-        env.set_Stream(mosek.streamtype.log, streamprinter)
 
-        # Create a task
-        with env.Task(0, 0) as task:
-            # Attach a printer to the task
+
+
+
+
+
+
+
+def InfeasibilityCertificateAUTO(A,b, refine_subproblem=True):
+    with mosek.Env() as env:
+        env.set_Stream(mosek.streamtype.log, streamprinter)
+        (numcon, numvar) = A.shape
+        effectiveb = (b).tolist()
+        with env.Task(numcon, numvar) as task:
             task.set_Stream(mosek.streamtype.log, streamprinter)
 
-            (numvar,numcon)=A.shape
 
             streamprinter('Inferred primal variable count: ' + str(numvar)+'\n')
             streamprinter('Inferred dual variable count: ' + str(numcon)+'\n')
 
             # Bounds for variables (We take the smallest value to be no lower than -1. Seems reasonable, right?)
             bkx = numvar * [mosek.boundkey.lo]
-            blx = numvar * [-1.0]
-            #blx = [0.] * numvar
-            bux = numvar * [+inf]
-
-            # Bounds for constraints
-            bkc = numcon * [mosek.boundkey.ra]
-            blc = numcon * [0.0]
-            buc = numcon * [1.0]
-
-            #Solver output is still unstable. We need to add a new constraint pertaining to sum of coefficients.
-
-            # A matrix parameters
-            csr = A.asformat('csr', copy=False)
-            ptrb = csr.indptr[:-1]
-            ptre = csr.indptr[1:]
-
-            task.inputdata(numcon,  # number of constraints
-                           numvar,  # number of variables
-                           b.tolist(),  # linear objective coefficients
-                           0.0,  # objective fixed value
-                           list(ptrb),
-                           list(ptre),
-                           list(csr.indices),
-                           list(csr.data),
-                           bkc,
-                           blc,
-                           buc,
-                           bkx,
-                           blx,
-                           bux)
-
-            #rangecon=np.arange(numcon).astype(np.int_).tolist()
-            rangevar=np.arange(numvar).astype(np.int_).tolist()
-            counts=np.ones(numvar).tolist() #We should accept this as solver input eventually.
-            task.appendcons(1)
-            task.putarow(numcon,rangevar,counts)
-            task.putconbound(numcon, mosek.boundkey.fx, 1, 1) #Sum of dual is 1.
-            numcon+=1
-
-            task.putobjsense(mosek.objsense.minimize)
-            task.putintparam(mosek.iparam.bi_clean_optimizer, mosek.optimizertype.primal_simplex)
-            task.putintparam(mosek.iparam.presolve_use, mosek.presolvemode.off)
-            task.putintparam(mosek.iparam.presolve_lindep_use, mosek.onoffkey.off)
-            task.putintparam(mosek.iparam.presolve_max_num_reductions, 0)
-            task.putintparam(mosek.iparam.optimizer, mosek.optimizertype.intpnt)
-            task.putintparam(mosek.iparam.intpnt_basis, mosek.basindtype.never)
-            streamprinter('LP constructed, initiated optimizer.\n')
-            #task.writetask('mosekLPinput.tar')
-            task.writedata('mosek_prob.jtask')
-            # Optimize the task
-            task.optimize()
-            task.writejsonsol('mosek_sol.json')
-
-            # Print a summary containing information
-            #about the solution for debugging purposes
-            task.solutionsummary(mosek.streamtype.msg)
-
-            #Use basic if available. (It won't be.)
-            if task.solutiondef(mosek.soltype.bas)==1:
-                soltype = mosek.soltype.bas
-            elif task.solutiondef(mosek.soltype.itr)>0:
-                soltype = mosek.soltype.itr
-            else:
-                raise ValueError("No valid soltype for mosek detected.")
-
-
-            prosta = task.getprosta(soltype)
-            solsta = task.getsolsta(soltype)
-
-            # Output a solution
-            xx = numvar * [0.0]
-            y = numcon * [0.0]
-            skc = numcon * [mosek.stakey.unk]
-            skx = numvar * [mosek.stakey.unk]
-            skn = 0 * [mosek.stakey.unk]
-            xc = numcon * [0.0]
-            slc = numcon * [0.0]
-            suc = numcon * [0.0]
-            slx = numvar * [0.0]
-            sux = numvar * [0.0]
-            snx = numvar * [0.0]
-            task.getsolution(soltype, skc, skx, skn, xc, xx, y, slc, suc, slx, sux, snx)
-            gap = np.linalg.norm(np.subtract(np.array(suc),np.array(slc)), np.inf)
-            Sol = {'x': np.array(xx), 'y': np.array(y), 'xc': np.array(xc), 'gap': gap}
-
-            #task.dispose()
-        #env.dispose()
-    streamprinter('Problem status: '+str(prosta)+'\n')
-    streamprinter('Solution status: ' + str(solsta)+'\n')
-    streamprinter('\nCoefficient Range: ' + str([min(Sol['x']),max(Sol['x'])]) + '\n')
-
-    return Sol
-
-
-
-
-
-
-
-
-
-
-
-def InfeasibilityCertificateAUTO(A,b): #OUTDATED
-    with mosek.Env() as env:
-        env.set_Stream(mosek.streamtype.log, streamprinter)
-        with env.Task(0, 0) as task:
-            task.set_Stream(mosek.streamtype.log, streamprinter)
-            (numcon,numvar)=A.shape
-
-            streamprinter('Inferred primal variable count: ' + str(numvar)+'\n')
-            streamprinter('Inferred dual variable count: ' + str(numcon)+'\n')
-
-            # Bounds for variables (We take the smallest value to be no lower than -1. Seems reasonable, right?)
-            bkx = numvar * [mosek.boundkey.fr]
-            blx = numvar * [0.0]
-            bux = numvar * [1.0]
+            blx = numvar * [0]
+            bux = numvar * [1]
 
             #Fake objective
-            objective=numvar * [1.0]
+            objective=numvar * [1]
 
             # Bounds for constraints
             bkc = numcon * [mosek.boundkey.fx]
-            blc = b.tolist()
-            buc = b.tolist()
+            blc = effectiveb
+            buc = effectiveb
 
             #Solver output is still unstable. We need to add a new constraint pertaining to sum of coefficients.
 
@@ -179,31 +67,42 @@ def InfeasibilityCertificateAUTO(A,b): #OUTDATED
                            bkx,
                            blx,
                            bux)
+            task.puttaskname('ORIGINAL')
 
-            #rangecon=np.arange(numcon).astype(np.int_).tolist()
-            #rangevar=np.arange(numvar).astype(np.int_).tolist()
+            rangecon=np.arange(numcon).astype(np.int_).tolist()
+            rangevar=np.arange(numvar).astype(np.int_).tolist()
             #counts=np.ones(numvar).tolist() #We should accept this as solver input eventually.
             #task.appendcons(1)
             #task.putarow(numcon,rangevar,counts)
-            #task.putconbound(numcon, mosek.boundkey.up, 0, 1)
+            #task.putconbound(numcon, mosek.boundkey.lo, 1, 1)
             #numcon+=1
 
-            task.putobjsense(mosek.objsense.minimize)
+            task.putobjsense(mosek.objsense.maximize)
             task.putintparam(mosek.iparam.bi_clean_optimizer, mosek.optimizertype.primal_simplex)
-            task.putintparam(mosek.iparam.presolve_use, mosek.presolvemode.off)
+            task.putintparam(mosek.iparam.presolve_use, mosek.presolvemode.on)
+            task.putintparam(mosek.iparam.presolve_use, mosek.presolvemode.on)
+            task.putintparam(mosek.iparam.presolve_lindep_use, mosek.onoffkey.on)
+            task.putintparam(mosek.iparam.presolve_max_num_reductions, -1)
             task.putintparam(mosek.iparam.optimizer, mosek.optimizertype.intpnt)
             #task.putintparam(mosek.iparam.optimizer, mosek.optimizertype.dual_simplex)
             task.putintparam(mosek.iparam.sim_max_iterations, 10000)
             task.putintparam(mosek.iparam.intpnt_basis, mosek.basindtype.never)
-            task.putintparam(mosek.iparam.infeas_report_auto, mosek.onoffkey.on)
-            task.putintparam(mosek.iparam.infeas_report_level, 3)
+            task.putintparam(mosek.iparam.infeas_report_auto, mosek.onoffkey.off)
+            task.putintparam(mosek.iparam.infeas_report_level, 0)
+            #task.putdouparam(mosek.dparam.intpnt_tol_pfeas, 1.0e-12)
+            #task.putdouparam(mosek.dparam.intpnt_tol_infeas, 1.0e-12)
+            #task.putdouparam(mosek.dparam.intpnt_tol_dfeas, 1.0e-12)
             #task.analyzeproblem(mosek.streamtype.msg)
+
+
             streamprinter('LP constructed, initiated optimizer.\n')
             #task.writetask('mosekLPinput.tar')
             #task.writedata('mosek_prob.jtask')
+
+
             # Optimize the task
             task.optimize()
-            task.writejsonsol('mosek_sol.json')
+            #task.writejsonsol('mosek_sol.json')
 
             # Print a summary containing information
             #about the solution for debugging purposes
@@ -220,8 +119,8 @@ def InfeasibilityCertificateAUTO(A,b): #OUTDATED
             #task.analyzesolution(mosek.streamtype.msg, soltype)
 
 
-            prosta = task.getprosta(soltype)
-            solsta = task.getsolsta(soltype)
+            #prosta = task.getprosta(soltype)
+            #solsta = task.getsolsta(soltype)
 
             # Output a solution
             xx = numvar * [0.0]
@@ -236,14 +135,105 @@ def InfeasibilityCertificateAUTO(A,b): #OUTDATED
             sux = numvar * [0.0]
             snx = numvar * [0.0]
             task.getsolution(soltype, skc, skx, skn, xc, xx, y, slc, suc, slx, sux, snx)
-            gap = np.linalg.norm(np.subtract(np.array(suc),np.array(slc)), np.inf)
-            Sol = {'x': -np.array(y), 'y': -np.array(xx), 'xc': -np.array(xc), 'gap': gap}
+            gap = np.linalg.norm(np.subtract(np.array(sux),np.array(slx)), np.inf)
+            Sol = {'x': np.array(y), 'y': np.array(xx), 'xc': np.array(xc), 'gap': gap}
 
-            #task.dispose()
-        #env.dispose()
+            streamprinter('\n First Pass Coefficient Range: ' + str([min(Sol['x']), max(Sol['x'])]) + '\n')
+
+            if refine_subproblem:
+
+                for i in rangecon:
+                    task.putconname(i,'con:'+str(i))
+                for i in rangevar:
+                    task.putvarname(i, 'var:' + str(i))
+
+                growxx = np.zeros_like(xx)
+                growy = np.zeros_like(y)
+                growxc = np.zeros_like(xc)
+
+
+
+                #NOW WE WORK ON INFEASIBLE SUBPROBLEM
+                subtask = task.getinfeasiblesubproblem(soltype)
+                subnumvar = subtask.getnumvar()
+                subnumcon = subtask.getnumcon()
+                subtask.puttaskname('INFEASIBLE SUBPROBLEM')
+
+                #subtask.writedata('subprob.jtask')
+                subtask.set_Stream(mosek.streamtype.log, streamprinter)
+                global subconstraints
+                global subvariables
+                subconstraints = np.fromiter((subtask.getconname(i)[4:] for i in range(subnumcon)), np.int)
+                subvariables = np.fromiter((subtask.getvarname(i)[4:] for i in range(subnumvar)), np.int)
+
+
+
+                streamprinter('Infeasible subproblem contains ' + str(subnumcon) + ' primal constraints.\n')
+                streamprinter('Infeasible subproblem contains ' + str(subnumvar) + ' primal variables.\n')
+
+                subtask.putintparam(mosek.iparam.bi_clean_optimizer, mosek.optimizertype.primal_simplex)
+                subtask.putintparam(mosek.iparam.presolve_use, mosek.presolvemode.on)
+                subtask.putintparam(mosek.iparam.presolve_lindep_use, mosek.onoffkey.on)
+                subtask.putintparam(mosek.iparam.presolve_max_num_reductions, -1)
+                subtask.putintparam(mosek.iparam.optimizer, mosek.optimizertype.intpnt)
+                #subtask.putintparam(mosek.iparam.optimizer, mosek.optimizertype.dual_simplex)
+                subtask.putintparam(mosek.iparam.sim_max_iterations, 10000)
+                subtask.putintparam(mosek.iparam.intpnt_basis, mosek.basindtype.never)
+                subtask.putintparam(mosek.iparam.infeas_report_auto, mosek.onoffkey.off)
+                subtask.putintparam(mosek.iparam.infeas_report_level, 0)
+                #subtask.putdouparam(mosek.dparam.intpnt_tol_pfeas, 0)
+                #subtask.putdouparam(mosek.dparam.intpnt_tol_infeas, 0)
+                #subtask.putdouparam(mosek.dparam.intpnt_tol_dfeas, 0)
+
+                subtask.optimize()
+                subtask.solutionsummary(mosek.streamtype.msg)
+
+                # Use basic if available. (It won't be.)
+                if subtask.solutiondef(mosek.soltype.bas) == 1:
+                    soltype = mosek.soltype.bas
+                elif subtask.solutiondef(mosek.soltype.itr) > 0:
+                    soltype = mosek.soltype.itr
+                else:
+                    raise ValueError("No valid soltype for mosek detected.")
+
+                # task.analyzesolution(mosek.streamtype.msg, soltype)
+
+                #prosta = subtask.getprosta(soltype)
+                #solsta = subtask.getsolsta(soltype)
+
+
+
+                xx = subnumvar * [0.0]
+                y = subnumcon * [0.0]
+                skc = subnumcon * [mosek.stakey.unk]
+                skx = subnumvar * [mosek.stakey.unk]
+                skn = 0 * [mosek.stakey.unk]
+                xc = subnumcon * [0.0]
+                slc = subnumcon * [0.0]
+                suc = subnumcon * [0.0]
+                slx = subnumvar * [0.0]
+                sux = subnumvar * [0.0]
+                snx = subnumvar * [0.0]
+                subtask.getsolution(soltype, skc, skx, skn, xc, xx, y, slc, suc, slx, sux, snx)
+                gap = np.linalg.norm(np.subtract(np.array(sux), np.array(slx)), np.inf)
+
+                growxx.put(subvariables, np.array(xx))
+                growy.put(subconstraints, np.array(y))
+                growxc.put(subconstraints, np.array(xc))
+
+                subSol = {'x': growy, 'y': growxx, 'xc': growxc, 'gap': gap}
+
+                streamprinter('Second Pass Coefficient Range: ' + str([min(subSol['x']), max(subSol['x'])]) + '\n')
+
+                Sol=subSol
+
+
+            task.__del__
+        env.__del__
     #streamprinter('Problem status: '+str(prosta)+'\n')
     #streamprinter('Solution status: ' + str(solsta)+'\n')
-    streamprinter('\nCoefficient Range: ' + str([min(Sol['x']),max(Sol['x'])]) + '\n')
+
+
 
     return Sol
 
@@ -325,9 +315,10 @@ if __name__ == '__main__':
     Graph = InstrumentalGraph
     Data = InstrumentalData
     card = 2
-    Graph = TriangleGraph
-    Data = PRBox
-    card = 4
+    #Graph = TriangleGraph
+    #Data = TsirelsonBox
+    #Data = TriangleData
+    #card = 4
 
 
 
@@ -335,7 +326,7 @@ if __name__ == '__main__':
 
     A = InflationMatrixFromGraph(Graph, inflation_order, card)
     b = FindB(Data, inflation_order)
-    Sol = InfeasibilityCertificate(A, b)
-    Sol['x']
+    Sol = InfeasibilityCertificateAUTO(A, b, refine_subproblem=False)
+    #Sol['x']
     #print([min(Sol['x']),max(Sol['x'])])
 
