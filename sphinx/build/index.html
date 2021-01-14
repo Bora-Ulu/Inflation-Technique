@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Inflation Technique’s documentation! &#8212; Inflation Technique 0.0.1 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-inflation-technique-s-documentation">
+<h1>Welcome to Inflation Technique’s documentation!<a class="headerlink" href="#welcome-to-inflation-technique-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+<hr class="docutils" />
+<span class="target" id="module-lib.inflationmatrix"></span><p>Created on Tue Dec 15 16:16:04 2020</p>
+<p>&#64;author: boraulu</p>
+<dl class="py function">
+<dt id="lib.inflationmatrix.Generate_b_and_counts">
+<code class="sig-prename descclassname">lib.inflationmatrix.</code><code class="sig-name descname">Generate_b_and_counts</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">Data</span></em>, <em class="sig-param"><span class="n">inflation_order</span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.inflationmatrix.Generate_b_and_counts" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl>
+<dt><strong>Data</strong><span class="classifier">array_like</span></dt><dd><blockquote>
+<div><p>The probability distribution for the original scenario’s observable variables.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>inflation_order<span class="classifier">int</span></dt><dd><p>The order of the inflation matrix.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl>
+<dt><strong>b</strong><span class="classifier">vector_of_integers</span></dt><dd><blockquote>
+<div><p>A numerical vector computered from <cite>Data</cite> to be evaluated with linear programming.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>counts<span class="classifier">vector_of_integers</span></dt><dd><p>For each probability in <cite>b</cite>, an integer counting how many distinct monomials were summed to obtain that probability.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The distribution is only compatible with the inflations test if there exists some positive x
+such that</p>
+<div class="math notranslate nohighlight">
+\[A \dot x = b\]</div>
+<p>For <span class="math notranslate nohighlight">\(b \geq 0\)</span> inline.</p>
+<dl class="simple">
+<dt>b”)</dt><dd><p>a
+b</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">Inflation Technique</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Elie Wolfe.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

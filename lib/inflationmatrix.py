@@ -93,6 +93,44 @@ def InflationMatrixFromGraph(g, inflation_order, card):
 
 
 def Generate_b_and_counts(Data, inflation_order):
+    """
+    Parameters
+    ----------
+    Data : array_like
+        The probability distribution for the original scenario's observable variables.
+    inflation_order : int
+        The order of the inflation matrix.
+
+    Returns
+    -------
+    b : vector_of_integers
+        A numerical vector computered from `Data` to be evaluated with linear programming.
+    counts : vector_of_integers
+        For each probability in `b`, an integer counting how many distinct monomials were summed to obtain that probability.
+
+
+    Notes
+    -----
+    The distribution is only compatible with the inflations test if there exists some positive x
+    such that
+
+    .. math:: A \dot x = b
+
+    For :math:`b \geq 0` inline.
+
+
+    Examples
+    --------
+    These are written in doctest format, and should illustrate how to
+    use the function.
+
+    >>> a = [1, 2, 3]
+    >>> print([x + 3 for x in a])
+    [4, 5, 6]
+    >>> print("a\nb")
+    a
+    b
+    """
     EncodingMonomialToRow = GenerateEncodingMonomialToRow(len(Data), inflation_order)
     s, idx, counts = np.unique(EncodingMonomialToRow, return_index=True, return_counts=True)
     preb = np.array(Data)
