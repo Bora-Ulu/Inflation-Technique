@@ -1,20 +1,23 @@
 import sys
 import mosek
 import numpy as np
-#from scipy.sparse import csr_matrix
+
+# from scipy.sparse import csr_matrix
 
 
 # Since the actual value of Infinity is ignores, we define it solely
 # for symbolic purposes:
 inf = 0.0
 
+
 # Define a stream printer to grab output from MOSEK
 def streamprinter(text):
     sys.stdout.write(text)
     sys.stdout.flush()
 
-def InfeasibilityCertificate(A,b):
-    #A is presumed to by a SciPy sparse matrix, b is a numpy array.
+
+def InfeasibilityCertificate(A, b):
+    # A is presumed to by a SciPy sparse matrix, b is a numpy array.
     # Make a MOSEK environment
     with mosek.Env() as env:
         # Attach a printer to the environment
@@ -25,15 +28,15 @@ def InfeasibilityCertificate(A,b):
             # Attach a printer to the task
             task.set_Stream(mosek.streamtype.log, streamprinter)
 
-            (numvar,numcon)=A.shape
+            (numvar, numcon) = A.shape
 
-            streamprinter('Inferred primal variable count: ' + str(numvar)+'\n')
-            streamprinter('Inferred dual variable count: ' + str(numcon)+'\n')
+            streamprinter('Inferred primal variable count: ' + str(numvar) + '\n')
+            streamprinter('Inferred dual variable count: ' + str(numcon) + '\n')
 
             # Bounds for variables (We take the smallest value to be no lower than -1. Seems reasonable, right?)
             bkx = numvar * [mosek.boundkey.lo]
             blx = numvar * [-1.0]
-            #blx = [0.] * numvar
+            # blx = [0.] * numvar
             bux = numvar * [+inf]
 
             # Bounds for constraints
@@ -41,7 +44,7 @@ def InfeasibilityCertificate(A,b):
             blc = numcon * [0.0]
             buc = numcon * [1.0]
 
-            #Solver output is still unstable. We need to add a new constraint pertaining to sum of coefficients.
+            # Solver output is still unstable. We need to add a new constraint pertaining to sum of coefficients.
 
             # A matrix parameters
             csr = A.asformat('csr', copy=False)
@@ -63,13 +66,13 @@ def InfeasibilityCertificate(A,b):
                            blx,
                            bux)
 
-            #rangecon=np.arange(numcon).astype(np.int_).tolist()
-            rangevar=np.arange(numvar).astype(np.int_).tolist()
-            counts=np.ones(numvar).tolist() #We should accept this as solver input eventually.
+            # rangecon=np.arange(numcon).astype(np.int_).tolist()
+            rangevar = np.arange(numvar).astype(np.int_).tolist()
+            counts = np.ones(numvar).tolist()  # We should accept this as solver input eventually.
             task.appendcons(1)
-            task.putarow(numcon,rangevar,counts)
-            task.putconbound(numcon, mosek.boundkey.fx, 1, 1) #Sum of dual is 1.
-            numcon+=1
+            task.putarow(numcon, rangevar, counts)
+            task.putconbound(numcon, mosek.boundkey.fx, 1, 1)  # Sum of dual is 1.
+            numcon += 1
 
             task.putobjsense(mosek.objsense.minimize)
             task.putintparam(mosek.iparam.bi_clean_optimizer, mosek.optimizertype.primal_simplex)
@@ -79,24 +82,23 @@ def InfeasibilityCertificate(A,b):
             task.putintparam(mosek.iparam.optimizer, mosek.optimizertype.intpnt)
             task.putintparam(mosek.iparam.intpnt_basis, mosek.basindtype.never)
             streamprinter('LP constructed, initiated optimizer.\n')
-            #task.writetask('mosekLPinput.tar')
+            # task.writetask('mosekLPinput.tar')
             task.writedata('mosek_prob.jtask')
             # Optimize the task
             task.optimize()
             task.writejsonsol('mosek_sol.json')
 
             # Print a summary containing information
-            #about the solution for debugging purposes
+            # about the solution for debugging purposes
             task.solutionsummary(mosek.streamtype.msg)
 
-            #Use basic if available. (It won't be.)
-            if task.solutiondef(mosek.soltype.bas)==1:
+            # Use basic if available. (It won't be.)
+            if task.solutiondef(mosek.soltype.bas) == 1:
                 soltype = mosek.soltype.bas
-            elif task.solutiondef(mosek.soltype.itr)>0:
+            elif task.solutiondef(mosek.soltype.itr) > 0:
                 soltype = mosek.soltype.itr
             else:
                 raise ValueError("No valid soltype for mosek detected.")
-
 
             prosta = task.getprosta(soltype)
             solsta = task.getsolsta(soltype)
@@ -114,28 +116,16 @@ def InfeasibilityCertificate(A,b):
             sux = numvar * [0.0]
             snx = numvar * [0.0]
             task.getsolution(soltype, skc, skx, skn, xc, xx, y, slc, suc, slx, sux, snx)
-            gap = np.linalg.norm(np.subtract(np.array(suc),np.array(slc)), np.inf)
+            gap = np.linalg.norm(np.subtract(np.array(suc), np.array(slc)), np.inf)
             Sol = {'x': np.array(xx), 'y': np.array(y), 'xc': np.array(xc), 'gap': gap}
 
-            #task.dispose()
-        #env.dispose()
-    streamprinter('Problem status: '+str(prosta)+'\n')
-    streamprinter('Solution status: ' + str(solsta)+'\n')
-    streamprinter('\nCoefficient Range: ' + str([min(Sol['x']),max(Sol['x'])]) + '\n')
+            # task.dispose()
+        # env.dispose()
+    streamprinter('Problem status: ' + str(prosta) + '\n')
+    streamprinter('Solution status: ' + str(solsta) + '\n')
+    streamprinter('\nCoefficient Range: ' + str([min(Sol['x']), max(Sol['x'])]) + '\n')
 
     return Sol
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
@@ -157,40 +147,44 @@ if __name__ == '__main__':
                     0.0021319750011559654, 4.248953695152569e-05, 0.09107007399427891, 0.001860791780024169,
                     5.998522863744803e-05, 0.0018395470115484063, 0.002570616985567304, 0.0766411271224461,
                     1.874538394920251e-05, 0.00048238121362614454, 0.0006410921310627258, 0.020223769896662948]
-    
-    def PRBoxF(Ain,Aout,Bin,Bout,CA,CB):
-        if Ain==CA and Bin==CB:
-            if Ain==0 or Bin==0:
-                if Aout==Bout:
-                    return 1/8
+
+
+    def PRBoxF(Ain, Aout, Bin, Bout, CA, CB):
+        if Ain == CA and Bin == CB:
+            if Ain == 0 or Bin == 0:
+                if Aout == Bout:
+                    return 1 / 8
                 else:
                     return 0
-            elif Ain==1 and Bin==1:
-                if Aout==Bout:
+            elif Ain == 1 and Bin == 1:
+                if Aout == Bout:
                     return 0
                 else:
-                    return 1/8
+                    return 1 / 8
         else:
             return 0
 
-    def TsirelsonBoxF(Ain,Aout,Bin,Bout,CA,CB):
-        if Ain==CA and Bin==CB:
-            if Ain==0 or Bin==0:
-                if Aout==Bout:
-                    return (4 + 2*np.sqrt(2))/64
+
+    def TsirelsonBoxF(Ain, Aout, Bin, Bout, CA, CB):
+        if Ain == CA and Bin == CB:
+            if Ain == 0 or Bin == 0:
+                if Aout == Bout:
+                    return (4 + 2 * np.sqrt(2)) / 64
                 else:
-                    return (4 - 2*np.sqrt(2))/64
-            elif Ain==1 and Bin==1:
-                if Aout==Bout:
-                    return (4 - 2*np.sqrt(2))/64
+                    return (4 - 2 * np.sqrt(2)) / 64
+            elif Ain == 1 and Bin == 1:
+                if Aout == Bout:
+                    return (4 - 2 * np.sqrt(2)) / 64
                 else:
-                    return (4 + 2*np.sqrt(2))/64
+                    return (4 + 2 * np.sqrt(2)) / 64
         else:
             return 0
-    
-    PRBox = np.array([PRBoxF(*idx) for idx, val in np.ndenumerate(np.arange(64).reshape((2,2,2,2,2,2)))])
-    TsirelsonBox = np.array([TsirelsonBoxF(*idx) for idx, val in np.ndenumerate(np.arange(64).reshape((2,2,2,2,2,2)))])
-    
+
+
+    PRBox = np.array([PRBoxF(*idx) for idx, val in np.ndenumerate(np.arange(64).reshape((2, 2, 2, 2, 2, 2)))])
+    TsirelsonBox = np.array(
+        [TsirelsonBoxF(*idx) for idx, val in np.ndenumerate(np.arange(64).reshape((2, 2, 2, 2, 2, 2)))])
+
     InstrumentalData = np.zeros(8);
     InstrumentalData[0] = 0.5;
     InstrumentalData[5] = 0.5;
@@ -201,7 +195,6 @@ if __name__ == '__main__':
     InstrumentalGraph = Graph.Formula("U1->X->A->B,U2->A:B")
     # We are going to need to get some code to work with variable ordering.
 
-
     Graph = InstrumentalGraph
     Data = InstrumentalData
     card = 2
@@ -209,13 +202,10 @@ if __name__ == '__main__':
     Data = PRBox
     card = 4
 
-
-
     from lib.inflationmatrix import InflationMatrixFromGraph, FindB
 
     A = InflationMatrixFromGraph(Graph, inflation_order, card)
     b = FindB(Data, inflation_order)
     Sol = InfeasibilityCertificate(A, b)
     Sol['x']
-    #print([min(Sol['x']),max(Sol['x'])])
-
+    # print([min(Sol['x']),max(Sol['x'])])

@@ -9,7 +9,7 @@ dependencies:
   - numba
   - mosek
   - pip:
-    - intel-openmp 
-    - mkl
-    - cvxopt
-    - igraph
+      - intel-openmp
+      - mkl
+      - cvxopt
+      - igraph
