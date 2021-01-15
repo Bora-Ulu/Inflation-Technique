@@ -21,7 +21,7 @@ import lib
 # -- Project information -----------------------------------------------------
 
 project = 'Inflation Technique'
-copyright = '2021, Elie Wolfe'
+#copyright = '2021, Elie Wolfe \& Bora Ula'
 author = 'Elie Wolfe \& Bora Ula'
 
 # The full version, including alpha/beta/rc tags
@@ -52,9 +52,36 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'bizstyle'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'no-undoc-members': True,
+    'exclude-members': ''
+}
+
+# If true, the current module name will be prepended to all description
+# unit titles (such as .. function::).
+add_module_names = False
+
+# A list of prefixs that are ignored when creating the module index. (new in Sphinx 0.6)
+modindex_common_prefix = ["lib."]
+
+#doctest_global_setup = "import networkx as nx"
+
+# The suffix of source filenames.
+source_suffix = ".rst"
+
+# The encoding of source files.
+source_encoding = "utf-8"
+
+# The master toctree document.
+master_doc = "index"
+
+#suppress_warnings = ["ref.citation", "ref.footnote"]

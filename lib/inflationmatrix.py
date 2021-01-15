@@ -116,18 +116,17 @@ def Generate_b_and_counts(Data, inflation_order):
 
     .. math:: A \dot x = b
 
-    For :math:`b \geq 0` inline.
+    For :math:`x \geq 0`.
 
 
     Examples
     --------
-    These are written in doctest format, and should illustrate how to
-    use the function.
+    Some example code to illustrate function usage.
 
     >>> a = [1, 2, 3]
     >>> print([x + 3 for x in a])
     [4, 5, 6]
-    >>> print("a\nb")
+    >>> print("a\\nb") #Extra \\ needed in docstring
     a
     b
     """

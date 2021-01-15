@@ -3,24 +3,22 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Inflation Technique's documentation!
-===============================================
+Welcome to the documention for the Inflation Technique python package!
+======================================================================
+
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :hidden:
+   
+*  :ref:`modindex`
+*  :ref:`genindex`
 
 
 
-Indices and tables
-==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
-==================
 
-.. automodule:: lib.inflationmatrix
-    :members:
+
+
 
