@@ -123,12 +123,10 @@ def Generate_b_and_counts(Data, inflation_order):
     --------
     Some example code to illustrate function usage.
 
-    >>> a = [1, 2, 3]
-    >>> print([x + 3 for x in a])
-    [4, 5, 6]
-    >>> print("a\\nb") #Extra \\ needed in docstring
-    a
-    b
+    >>> Data = None
+    >>> Inflation_order = None
+    >>> Generate_b_and_counts(Data, Inflation_order)
+    ***TO FILL IN***
     """
     EncodingMonomialToRow = GenerateEncodingMonomialToRow(len(Data), inflation_order)
     s, idx, counts = np.unique(EncodingMonomialToRow, return_index=True, return_counts=True)

@@ -67,12 +67,15 @@ def GenerateDeterminismAssumptions(determinism_checks, latent_count, group_gener
     one_generator_per_root = group_generators[:, 0]
     det_assumptions = list();
     for pair in determinism_checks:
-        flatset = exp_set[list(np.array(pair[1]) - latent_count)]
+        flatset = exp_set[list(np.array(pair[1]) - latent_count)] #TODO: change to np.take
         symop = one_generator_per_root[pair[0]]
         rule = np.vstack((flatset, symop[flatset])).T.astype('uint32')
         rule = rule[:-1, :].T.tolist() + rule[-1, :].T.tolist()
         det_assumptions.append(rule)
     return det_assumptions
+
+# We should add a new function to give expressible sets. Ideally with symbolic output.
+
 
 
 def LearnInflationGraphParameters(g, inflation_order):
